@@ -448,7 +448,7 @@ tmp/
 temp/
 
 # Editor directories and files
-.vscode/
+# .vscode/
 .idea/
 *.swp
 *.swo

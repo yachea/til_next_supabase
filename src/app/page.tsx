@@ -8,16 +8,7 @@ import UserProfile from '@/components/UserProfile';
 export default function Home() {
   return (
     <div>
-      <ButtonTest />
-      <SCSSTest />
-      <Counter />
-      <br />
-      <br />
-      <UserProfile />
-      <br />
-      <br />
-      <ThemeToggle />
-      <TodoList />
+      <h2>React Query</h2>
     </div>
   );
 }

@@ -21,26 +21,27 @@ import { persist } from 'zustand/middleware';
 // get : state 읽기
 // set : state 쓰기
 
-// 2 단계 1. localStorage 가 적용 안된버전
+// 2 단계 1. localStorage 가 적용 안된 버전
 const userStore = create<UserState>()((set, get) => ({
   // 초기상태
   user: null,
   isLoggedIn: false,
   isLoading: false,
+
   // 사용자 정보 업데이트
   login: (user: User) =>
-    set({ user: user, isLoading: false, isLoggedIn: true }),
+    set({ user: user, isLoggedIn: true, isLoading: false }),
   logout: () => set({ user: null, isLoggedIn: false, isLoading: false }),
   updateUser: (userData: Partial<User>) =>
     set(state => ({
       user: state.user ? { ...state.user, ...userData } : null,
     })),
-  // 로딩 상태
-  setLoading: (loding: boolean) => set({ isLoading: loding }),
+
+  // 로딩 상태 설정
+  setLoading: (loading: boolean) => set({ isLoading: loading }),
 }));
 
-// 2 단계 2. localStorage 가 적용된버전
-
+// 2 단계 2. localStorage 가 적용된 버전
 const userLocalStore = create<UserState>()(
   persist(
     (set, get) => ({
@@ -61,7 +62,13 @@ const userLocalStore = create<UserState>()(
       // 로딩 상태 설정
       setLoading: (loading: boolean) => set({ isLoading: loading }),
     }),
-    { name: 'user-storage' }
+    {
+      name: 'user-storage',
+      partialize: state => ({
+        user: state.user,
+        isLoggedIn: state.isLoggedIn,
+      }),
+    }
   )
 );
 

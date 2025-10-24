@@ -39,7 +39,6 @@ export interface Todo {
   title: string;
   completed: boolean;
 }
-
 // 사용자 목록가져오기 API
 export async function fetchUsers(): Promise<User[]> {
   // Vanila js 활용(Next.js 의 fetch 아님)
@@ -60,8 +59,9 @@ export async function fetchUser(id: number): Promise<User> {
   );
 
   if (!response.ok) {
-    throw new Error(`${id}사용자 목록 가져오기 실패`);
+    throw new Error(`${id} 사용자 목록 가져오기 실패`);
   }
+
   return response.json();
 }
 
@@ -91,7 +91,7 @@ export async function fetchPost(id: number): Promise<Post> {
   );
 
   if (!response.ok) {
-    throw new Error(`${id}게시글 상세정보 가져오기 실패`);
+    throw new Error(`${id} 게시글 상세정보 가져오기 실패`);
   }
 
   return response.json();

@@ -1,11 +1,11 @@
-/**
- * QueryClient 를 App 전체에 제공함.
- * - 모든 하위 컴포넌트에서 useQuery, useMutaion 등의 훅을 사용할 수 있게 함.
- */
+/*
+QueryClient 를 App 전체에 제공함
+- 모든 하위 컴포넌트에서 useQuery, useMutaion 등의 훅을 사용할 수있게함
+ **/
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools/production';
 import { useState } from 'react';
 
 export default function QueryProvider({

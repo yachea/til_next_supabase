@@ -3,10 +3,8 @@
 import { fetchTodos, Todo } from '@/lib/api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { error } from 'console';
-import { todo } from 'node:test';
-import { resolve } from 'path';
 
-// 할 일 목록 가져오기 훅
+// 할일 목록 가져오기 훅
 export function useTodos(userId?: number) {
   return useQuery({
     queryKey: userId ? ['todos', 'user', userId] : ['todos'],
@@ -35,8 +33,7 @@ export function useTodaysByStatus(userId?: number, completed?: boolean) {
     gcTime: 5 * 60 * 1000,
   });
 }
-
-// 할 일 통계 정보를 가져오는 훅
+// 할일 통계 정보를 가져오는 훅
 export function useTodoStats(userId?: number) {
   const todosQuery = useTodos(userId);
 
@@ -69,13 +66,14 @@ export function useCreateTodo() {
       return { ...todo, id: Math.random() * 1000 };
     },
     onSuccess: newTodo => {
-      // 할 일 목록 쿼리들을 무효화
+      // 할일 목록 쿼리들을 무효화
       queryClient.invalidateQueries({ queryKey: ['todos'] });
+
       // 새로 생성된 할일을 캐시에 추가
       queryClient.setQueryData(['todos', newTodo.id], newTodo);
     },
     onError: error => {
-      console.log('할 일 생성에 실패했어요', error);
+      console.log('할일 생성에 실패했어요.', error);
     },
   });
 }
@@ -109,7 +107,7 @@ export function useUpdateTodo() {
   });
 }
 
-// 할 일 삭제하는 뮤테이션 훅
+// 할일 삭제하는 뮤테이션 훅
 export function useDeleteTodo() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -119,8 +117,9 @@ export function useDeleteTodo() {
       return id;
     },
     onSuccess: deletedId => {
-      // 할 일 목록 쿼리들을 무효화
+      // 해당 할일 쿼리를 무효화
       queryClient.invalidateQueries({ queryKey: ['todos', deletedId] });
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
     },
     onError: error => {
       console.log('삭제에 실패했습니다.', error);

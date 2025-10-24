@@ -1,21 +1,20 @@
 // 사용자 목록을 관리하는 React Query 훅
 // 사용자 목록을 가져오고 관리하는 기능을 제공함.
-// React Query 의 useQuery 를 활용함.
+// React Query 의  useQuery 를 활용함.
 // 캐싱, 로딩, 에러 처리를 자동화 함.
 
 import { fetchUser, fetchUsers } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 
-/**
- * 사용자 목로 가져오기
+/* 사용자 목록 가져오기
  * - 사용자 목록 자동 로딩
  * - 로딩 상태 관리
  * - 에러 상태 관리
  * - 데이터 캐싱
  * - 자동 리페치
- */
-
+ **/
 export function useUsers() {
+  // useQuery :  정보가져오기
   return useQuery({
     // 쿼리 키 : 데이터 캐싱 구별을 위한 키값을 설정
     queryKey: ['users'],
@@ -26,11 +25,10 @@ export function useUsers() {
     gcTime: 10 * 60 * 1000, // 10분간 캐시를 유지함.
   });
 }
-
 // 각 사용자, 즉 특정 사용자 정보 가져오는 훅
 export function useUser(id: number) {
-  // ID가 유효한지 검사 (id가 null, undefined, 0 이하면 )
-  const isValidID = (id: number) => {
+  // ID 가 유효한지 검사 (id가 null, undefined, 0 이하면 )
+  const isValidId = (id: number) => {
     return id !== null && id !== undefined && id > 0;
   };
   // useQuery : 정보 호출
@@ -39,14 +37,13 @@ export function useUser(id: number) {
     queryKey: ['users', id],
     // 실행할 함수
     queryFn: () => fetchUser(id),
-    // 사용자 ID 가 null, undefined, 0 보다 작으면 실행하지 않도록
-    enabled: isValidID(id),
-    // 쿼리 옵션
+    // 사용자 ID 가 null, undefined, 0 보다작으면 실행하지 않도록
+    enabled: isValidId(id),
+    // 쿼리옵션
     staleTime: 5 * 60 * 1000, // 5분간은 호출을 막는다. 즉 fresh 유지
     gcTime: 10 * 60 * 1000, // 10분간 캐시를 유지함.
   });
 }
-
 // 사용자와 해당 사용자의 게시글을 함께 가져오는 훅
 export function useUserWithPosts() {
   // 먼저 사용자 목록을 가져옴

@@ -13,6 +13,7 @@ import { persist } from 'zustand/middleware';
 //   setSelectedUserId: (userId: number | null) => void; // 선택된 사용자 ID 설정
 //   setSelectedPostId: (postId: number | null) => void; // 선택된 게시글 ID 설정
 // }
+
 // 2. localStorage 로 생성
 const queryLocalState = create<QueryState>()(
   persist(

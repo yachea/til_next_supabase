@@ -19,7 +19,7 @@ export function usePosts(userId?: number) {
     // 사용자 ID가 있으면 포함하여 캐시 키 생성
     // 사용자 ID가 없으면 정해진 캐시 키 생성
     queryKey: userId ? ['posts', 'user', userId] : ['posts'],
-    // 쿼리함수 : API 를 사용자 ID에 따라서 호출해줌.
+    // 쿼리함수 : API 를 사용자 ID에 따라서 호출해줌
     queryFn: () => fetchPosts(userId),
     // 쿼리 개별 옵션
     staleTime: 5 * 60 * 1000, // 5분간은 호출을 막는다. 즉 fresh 유지
@@ -33,20 +33,20 @@ export function usePost(id: number) {
     queryKey: ['posts', id],
     queryFn: () => fetchPost(id),
     enabled: !!id,
-    // 쿼리 개별 옵션
-    staleTime: 5 * 60 * 1000, // 5분간은 호출을 막는다. 즉 fresh 유지
-    gcTime: 10 * 60 * 1000, // 10분간 캐시를 유지함.
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
-// 새 글을 등록하는 훅
+// 새글을 등록하는 훅
 export function useCreatePost() {
   // 꼭 알아두자
-  // 아래 구문은 React Query 의 데이터 저장소에 접근하기 위한 훅
+  // 아래 구문은 React Query의 데이터 저장소에 접근하기 위한 훅
   // 서버에서 가져온 데이터를 관리하는 관리자를 불러옴
-  // 내부적으로 useQuery, useMustaion 훅이 관리하는 캐시를 전체 관리하는 훅
+  // 내부적으로 useQuery, useMustaion 훅이 관리하느 캐시를 전체 관리하는 훅
   const queryClient = useQueryClient();
-  // useMutation : 데이터 생성, 업데이트, 삭제 등...
+
+  // useMustation :  데이터 생성, 업데이트, 삭제 등..
   return useMutation({
     // 뮤테이션 함수 : API 를 이용한 새 게시글 생성 함수 연결
     mutationFn: createPost,
@@ -57,13 +57,15 @@ export function useCreatePost() {
       // React Query 가 자동으로 최신 데이터를 다시 가져오게 하는 함수
       // 지금 캐시에 저장된 posts 가 오래 되었으니, 다시 서버에서 가져와
       queryClient.invalidateQueries({ queryKey: ['posts'] });
+
       // 새로 생성된 게시글을 캐시에 추가
-      // 아래 구문은 서버에서 다시 데이터를 가져오지 않고, 캐시 데이터를 직접 수정함.
+      // 아래 구문은 서버에서 다시 데이터를 가져오지 않고, 캐시 데이터를 직접 수정함
+      // 사용자가 새로고침 하지 않아도 최신 내용이 보여지도록 함.
       queryClient.setQueryData(['posts', newPost.id], newPost);
     },
     // 에러시 실행되는 함수
     onError: error => {
-      console.log('글 등록 실패했어요.', error);
+      console.log('글등록 실패했어요.', error);
     },
   });
 }
@@ -150,20 +152,23 @@ export function useDeletePost() {
 }
 
 // 게시글과 댓글을 함께 가져오는 훅
-export function usePostWithComments(userId: number) {
-  // 먼저 게시글 목록을 가져옴.
+export function usePostWithComments(userId?: number) {
+  // 먼저 게시글 목록을 가져옴
   const postsQuery = usePosts(userId);
-  // 게시글 목록이 성공적으로 로드된 경우에만 댓글을 가져옴.
+
+  // 게시글 목록이 성공적으로 로드된 경우에만 댓글을 가져옴
   const commentsQuery = useQuery({
     queryKey: ['posts', 'comments', userId],
     queryFn: async () => {
       if (!postsQuery.data) return [];
+
       // 모든 게시글의 댓글을 병렬로 가져옴
       const commentsPromises = postsQuery.data.map(post =>
         fetch(
           `https://jsonplaceholder.typicode.com/posts/${post.id}/comments`
         ).then(res => res.json())
       );
+
       const allComments = await Promise.all(commentsPromises);
       return postsQuery.data.map((post, index) => ({
         ...post,

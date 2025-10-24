@@ -54,7 +54,7 @@ const themeLocalStore = create<ThemeState>()(
       },
     }),
     {
-      name: 'theme-storage', // localStorage에 저장되는 이름
+      name: 'theme-storage', // 로컬스토리지에 저장되는 이름
     }
   )
 );
@@ -63,7 +63,7 @@ const themeLocalStore = create<ThemeState>()(
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
   if (theme === 'system') {
-    // 시스템에 있는 테마를 감지
+    // 시스템 테마 감지
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
       .matches
       ? 'dark'
@@ -79,6 +79,7 @@ function applyTheme(theme: Theme) {
     root.classList.remove('dark');
   }
 }
+
 // 3 단계 - custom Hook 정의
 export const useThemeStore = () => {
   const { theme, setTheme, toggleTheme } = themeLocalStore();

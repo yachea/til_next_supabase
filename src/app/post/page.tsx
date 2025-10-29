@@ -1,5 +1,5 @@
 function PostPage() {
-  return <div>page</div>;
+  return <div>PostPage</div>;
 }
 
 export default PostPage;

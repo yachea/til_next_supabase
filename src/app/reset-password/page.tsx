@@ -1,5 +1,5 @@
 function ResetPassword() {
-  return <div>page</div>;
+  return <div>ResetPassword</div>;
 }
 
 export default ResetPassword;

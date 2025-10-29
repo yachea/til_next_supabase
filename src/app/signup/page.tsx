@@ -44,8 +44,8 @@ function SignUp() {
       <div>
         <Button
           disabled={isPending}
-          onClick={handleSignUpClick}
           className='w-full'
+          onClick={handleSignUpClick}
         >
           {isPending ? '회원등록중...' : '회원가입'}
         </Button>

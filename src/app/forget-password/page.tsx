@@ -1,7 +1,5 @@
-import React from 'react';
-
 function ForgetPassword() {
-  return <div>page</div>;
+  return <div>ForgetPassword</div>;
 }
 
 export default ForgetPassword;

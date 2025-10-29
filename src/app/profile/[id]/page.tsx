@@ -6,7 +6,7 @@ interface ProfileDetailProps {
 
 function ProfileDetail({ params }: ProfileDetailProps) {
   const { id } = params;
-  return <div>{id} page</div>;
+  return <div>{id} ProfileDetail</div>;
 }
 
 export default ProfileDetail;

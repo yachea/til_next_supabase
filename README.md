@@ -73,7 +73,7 @@ export default async function ProtectedLayout({
   const { data } = await supabase.auth.getSession();
   console.log(data);
   // 세션정보를 가져왔는데 null 이라면 비회원이다.
-  if (!data.session) redirect('/');
+  if (data.session) redirect('/');
 
   return <>{children}</>;
 }

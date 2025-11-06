@@ -1,7 +1,6 @@
-// 아래는 주의사항 : 왜냐하면 서버에서 클라이언트로 접근해야함.
+// 아래는 주의사항 : 왜냐하면 서버에서 클라이언트로 접근해야함
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');

@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 export default function ForgetPassword() {
   // 컴포넌트 state
   const [email, setEmail] = useState('');
-  // mutation 활용하기
+  // mutation 실행하기
   const { mutate, isPending } = useRequestPasswordResetEmail({
     onSuccess: () => {
       toast.info('인증 메일이 잘 발송되었습니다.', {
@@ -51,11 +51,11 @@ export default function ForgetPassword() {
         placeholder='example@example.com'
       />
       <Button
-        disabled={isPending}
         onClick={handleEmailSendClick}
+        disabled={isPending}
         className='w-full'
       >
-        {isPending ? '인증 메일 요청중...' : '인증 메일 요청하기'}
+        {isPending ? '인증 메일 요청 중...' : '인증 메일 요청하기'}
       </Button>
     </div>
   );

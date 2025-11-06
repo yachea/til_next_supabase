@@ -6,8 +6,8 @@ import { useFetchTodos } from '@/hooks/todos/queries/useFetchTodos';
 export default function TodoListPage() {
   const { data: todos, isLoading, error } = useFetchTodos();
 
-  if (isLoading) return <div>로딩중...</div>;
-  if (error) return <div>에러입니다. : {error.message}</div>;
+  if (isLoading) return <div>로딩중 ...</div>;
+  if (error) return <div>에러입니다: {error.message}</div>;
   if (!todos) return <div>데이터가 없습니다.</div>;
 
   return (
@@ -16,11 +16,14 @@ export default function TodoListPage() {
       <TodoEditor />
       <div className='flex flex-col gap-2'>
         {todos.map(item => (
-          <TodoItem key={item.id} id={item.id} content={item.title} />
+          <TodoItem
+            key={item.id}
+            id={item.id}
+            title={item.title}
+            userId={item.userId}
+            completed={item.completed}
+          />
         ))}
-        <TodoItem id={1} content='Todo 1' />
-        <TodoItem id={2} content='Todo 2' />
-        <TodoItem id={3} content='Todo 3' />
       </div>
     </div>
   );

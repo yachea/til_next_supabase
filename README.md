@@ -1,251 +1,288 @@
-# 캐시된 데이터 정규화
+# 프로필 업데이트 하기
 
-- 보관된 캐시 데이터에 중복된 데이터 제거
-- 겹쳐진 캐시 데이터(배열 안에 객체 등)를 평탄화 처리
+- 회원가입시 회원프로필 업데이트
+- 로그인 후 회원정보가 없으면 정보를 Insert 해준다.
 
-## 1. 현재 캐시된 데이터 확인해 보기
+## 1. API 만들기
 
-- 현재 캐시되어진 데이터는 중복으로 관리가 되고 있다.
-- 메모리 공간이 낭비된다.
-- 성능 최적화에도 문제가 된다.
-- 수정을 하면 현재 2개 캐시데이터가 수정됨.
-
-## 2. 캐시 데이터 정규화로 관리하도록 수정 진행
-
-- `/src/hooks/todos/queries/useFetchTodos.ts`
+- `/src/apis/profile.ts 파일` 생성
 
 ```ts
-import { fetchTodos } from '@/apis/todo';
-import { QUERY_KEYS } from '@/lib/constants';
-import { useQuery } from '@tanstack/react-query';
+import supabase from '@/lib/supabase/client';
 
-export function useFetchTodos() {
-  return useQuery({
-    queryKey: QUERY_KEYS.todo.list,
-    // queryFn: fetchTodos,
-    queryFn: async () => {
-      // 함수 내부에서 정규화를 진행함.
-      const todos = await fetchTodos();
-      // console.log(todos);
-      // todo 의 id 값 만을 따로 모아서 배열로 캐시 해둔다.
-      return todos.map(item => item.id);
-    },
-  });
+// 1. 회원정보 읽기
+// 회원의 ID 를 전달받아서 정보 데이터 반환함.
+// 비동기 작업이므로 async 적용
+export async function fetchProfile(userId: string) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  if (error) throw error;
+  return data;
 }
 ```
 
-- 평탄화 작업
+## 2. `쿼리 키 팩토리`를 생성
+
+- `쿼리 키`를 별도로 생성 관리함.
+- `/src/lib/constants.ts` 업데이트
 
 ```ts
-import { fetchTodos } from '@/apis/todo';
-import { QUERY_KEYS } from '@/lib/constants';
-import { Todo } from '@/types/todo-type';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { profile } from 'console';
 
-export function useFetchTodos() {
-  // 전역에서 관리하는 상태참조
-  const queryClient = useQueryClient();
-  return useQuery({
-    queryKey: QUERY_KEYS.todo.list,
-    // queryFn: fetchTodos,
-    queryFn: async () => {
-      // 함수 내부에서 정규화를 진행함.
-      const todos = await fetchTodos();
-      // console.log(todos);
-
-      // 평탄화 작업
-      todos.forEach(todo => {
-        // 개별 캐시 데이터들까지 함께 보관하도록 설정
-        queryClient.setQueryData<Todo>(
-          QUERY_KEYS.todo.detail(todo.id.toString()),
-          todo
-        );
-      });
-
-      // todo 의 id 값 만을 따로 모아서 배열로 캐시 해둔다.
-      return todos.map(item => item.id);
-    },
-  });
-}
-```
-
-## 3. 출력해 보기
-
-- `/src/app/todo-list/page.tsx` 업데이트
-- 이제는 id 값만 props로 전달한다.
-
-```tsx
-'use client';
-import TodoEditor from '@/components/todo/TodoEditor';
-import TodoItem from '@/components/todo/TodoItem';
-import { useFetchTodos } from '@/hooks/todos/queries/useFetchTodos';
-
-export default function TodoListPage() {
-  const { data: todos, isLoading, error } = useFetchTodos();
-
-  if (isLoading) return <div>로딩중 ...</div>;
-  if (error) return <div>에러입니다: {error.message}</div>;
-  if (!todos) return <div>데이터가 없습니다.</div>;
-
-  return (
-    <div className='flex flex-col gap-5 p-5'>
-      <h1 className='text-2xl font-bold'>Todo List</h1>
-      <TodoEditor />
-      <div className='flex flex-col gap-2'>
-        {todos.map(id => (
-          <TodoItem key={id} id={id} />
-        ))}
-      </div>
-    </div>
-  );
-}
-```
-
-### 3.1. 리패칭 여부 관리
-
-- "LIST" 와 "DETAIL" 로 구분
-- "LIST" 일 때
-  - 아예 `리패칭 실행하지 않도록`
-  - 계속 `fresh` 상태 유지
-- "DETAIL" 일 때
-  - 아이템 하나를 선택하면
-  - `리패칭 실행하도록`
-
-  ### 3.2. 코드 반영
-
-- `/src/hooks/todos/fetchTodoById.ts` 업데이트
-- 기존 호출 : `useTodoDataById(아이디)`
-- 개선된 리패칭 하지 않도록 호출 : `useTodoDataById(아이디, "LIST")`
-- 개선된 리패칭 하도록 호출 : `useTodoDataById(아이디, "DETAIL")`
-- 아래처럼 할려면 옵션중 `enabled` 를 활용하자.
-
-```ts
-import { fetchTodoById } from '@/apis/todo';
-import { QUERY_KEYS } from '@/lib/constants';
-import { useQuery } from '@tanstack/react-query';
-
-export function useTodoDataById(id: number, type: 'LIST' | 'DETAIL') {
-  return useQuery({
-    queryKey: QUERY_KEYS.todo.detail(id.toString()),
-    queryFn: () => fetchTodoById(id),
-    // enabled 옵션이 true 이면 queryFn 진행
-    // enabled 옵션이 false 이면 캐시 리턴
-    enabled: type === 'DETAIL',
-  });
-}
-```
-
-- `/src/components/todo/Todoitem.tsx` 업데이트
-
-```tsx
-'use client';
-import { useUpdateTodoMutation } from '@/hooks/todos/mutations/useUpdateTodoMutation';
-import { useTodoDataById } from '@/hooks/todos/queries/useTodoDataById';
-import Link from 'next/link';
-import { Button } from '../ui/button';
-
-export default function TodoItem({ id }: { id: number }) {
-  // 개선된 코드 시작 ===================
-  // 캐시된 데이터를 활용한다. ("List" 매개변수 추가)
-  const { data: todo } = useTodoDataById(id, 'LIST');
-  if (!todo) throw new Error('현재 Todo 가 없어요.');
-  // 원하는 자료를 캐시로부터 가져온다.
-  const { completed, title } = todo;
-  // 캐시된 코드 종료 ====================
-
-  // hook 활용하기
-  const { mutate: updateTodo } = useUpdateTodoMutation();
-
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // console.log(e.target.checked);
-    updateTodo({ id, completed: !completed });
-  };
-
-  const handleDeleteClick = () => {};
-
-  return (
-    <div className='flex items-center justify-between border p-2'>
-      <div className='flex gap-5'>
-        <input
-          type={'checkbox'}
-          checked={completed}
-          onChange={handleCheckboxChange}
-        />
-        <Link href={`/todo-detail/${id}`}>{title}</Link>
-      </div>
-
-      <Button onClick={handleDeleteClick} variant={'destructive'}>
-        삭제
-      </Button>
-    </div>
-  );
-}
-```
-
-- `/src/components/todo/TodoDetail.tsx` 업데이트
-
-```tsx
-'use client';
-
-import { useTodoDataById } from '@/hooks/todos/queries/useTodoDataById';
-
-const TodoDetail = ({ id }: { id: number }) => {
-  // 'DETAIL' 매개변수 : 리패칭 실행하도록
-  const { data, isLoading, error } = useTodoDataById(id, 'DETAIL');
-
-  if (isLoading) return <div>로딩중...</div>;
-  if (error) return <div>에러입니다. {error.message}</div>;
-  if (!data) return <div>자료가 없어요</div>;
-
-  return <div>TodoDetail : {data.title}</div>;
+// 쿼리키 팩토링 상수
+export const QUERY_KEYS = {
+  todo: {
+    all: ['todos'],
+    list: ['todos', 'list'],
+    detail: (id: string) => ['todos', 'deatail', id],
+  },
+  // 프로필 useQuery 키 생성 및 관리
+  profile: {
+    all: ['profile'],
+    list: ['profile', 'list'],
+    byId: (userId: string) => ['profile', 'byId', userId],
+  },
 };
-
-export default TodoDetail;
 ```
 
-## 4. 토글 기능에도 적용하기
+## 3. hook 만들기
 
-- `/src/hooks/todos/mutations/useUpdateTodoMutation.ts` 업데이트
+- `/src/hooks/queries 폴더` 생성
+- `/src/hooks/queries/useProfileData.ts 파일` 생성
 
 ```ts
-import { updateTodo } from '@/apis/todo';
+import { fetchProfile } from '@/apis/profile';
 import { QUERY_KEYS } from '@/lib/constants';
-import { Todo } from '@/types/todo-type';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
-export function useUpdateTodoMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: updateTodo,
-    onMutate: async updatedTodo => {
-      // 하나만 업데이트 하기
-      await queryClient.cancelQueries({
-        queryKey: QUERY_KEYS.todo.detail(updatedTodo.id.toString()),
-      });
-      const prevTodo = queryClient.getQueryData<Todo>(
-        QUERY_KEYS.todo.detail(updatedTodo.id.toString())
-      );
-      // 업데이트 된 데이터만 반영해줌
-      queryClient.setQueryData<Todo>(
-        QUERY_KEYS.todo.detail(updatedTodo.id.toString()),
-        prevTodo => {
-          if (!prevTodo) return;
-          return { ...prevTodo, ...updatedTodo };
+export default function useProfileData(userId?: string) {
+  return useQuery({
+    queryKey: QUERY_KEYS.profile.byId(userId!),
+    queryFn: () => fetchProfile(userId!),
+    enabled: !!userId,
+  });
+}
+```
+
+## 4. 활용하기
+
+- `/src/components/providers/SesstionProvider.tsx` 업데이트
+- 1단계
+
+```tsx
+'use client';
+import supabase from '@/lib/supabase/client';
+import { useSession, useSessionLoaded, useSetSession } from '@/stores/session';
+import { useEffect } from 'react';
+import { GlobalLoading } from '../GlobalLoading';
+import useProfileData from '@/hooks/queries/useProfileData';
+
+interface SessionProviderProps {
+  children: React.ReactNode;
+}
+export default function SessionProvider({ children }: SessionProviderProps) {
+  // 1단계. 현재 세션 Store로 부터 사용자의 세션 데이터를 불러옴
+  const session = useSession();
+
+  const setSession = useSetSession();
+  const isSessionLoaded = useSessionLoaded();
+
+  // 2단계.
+  // session 데이터 안쪽의 user.id 를 인수로 전달함.
+  const { data: profile, isLoading: isProfileLoading } = useProfileData(
+    session?.user.id
+  );
+
+  useEffect(() => {
+    // Supbase 의 인증의 상태가 변함을 체크함.
+    supabase.auth.onAuthStateChange((event, session) => {
+      // zustand 에 보관
+      setSession(session);
+    });
+  }, []);
+
+  // 아직 세션이 없다면
+  if (!isSessionLoaded) return <GlobalLoading />;
+
+  // 3단계
+  if (isProfileLoading) return <GlobalLoading />;
+
+  return <div>{children}</div>;
+}
+```
+
+- 2단계 : React Query 의 default 옵션 적용하기
+- 굳이 profiles 테이블에 있는지 4번이나 질의하는 것은 필요없다.
+- `/src/components/providers/QueryProvider.tsx`
+
+```tsx
+/*
+QueryClient 를 App 전체에 제공함
+- 모든 하위 컴포넌트에서 useQuery, useMutaion 등의 훅을 사용할 수있게함
+ **/
+'use client';
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools/production';
+import { useState } from 'react';
+
+export default function QueryProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // React 라면 아래 설정은 달라집니다.
+  // 현재 Next.js 에다가 셋팅을 진행함.
+  // 서버 사이드 렌더링을 위한 QueryClient 인스턴스 생성
+  // 각 요청마다 새로운 QueryClient 를 생성하여 상태 구분함.
+  const [client, setClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { retry: false, refetchOnWindowFocus: false },
+        },
+      })
+  );
+
+  return (
+    <QueryClientProvider client={client}>
+      {children}
+      {/* npm run dev 상태에서만 개발자 도구 보기 */}
+      {process.env.NODE_ENV === 'development' && (
+        <ReactQueryDevtools
+          initialIsOpen={false}
+          buttonPosition='bottom-right'
+        />
+      )}
+    </QueryClientProvider>
+  );
+}
+```
+
+## 5. 오류 체크하고 기본 profile 입력해주기
+
+- 자동으로 기본 프로필 생성함.
+
+### 5.1. 중복되지 않는 닉네임 생성 기능 추가
+
+- `/src/lib/utils.ts` 추가
+
+```ts
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+// shadcn/ui 설치하면 생성됨 (클래스명 합쳐주는 유틸함수)
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+// 랜덤하면서 중복되지 않는 닉네임 생성
+export const getRandomNickName = () => {
+  const randomResult = Math.random().toString(36).substring(2, 8);
+  return `user_nickname_${randomResult}`;
+};
+```
+
+### 5.2. API 생성하기
+
+- `/src/apis/profile.ts 파일` 기능 추가
+
+```ts
+import supabase from '@/lib/supabase/client';
+import { getRandomNickName } from '@/lib/utils';
+
+// 1. 회원정보 읽기
+// 회원의 ID 를 전달받아서 정보 데이터 반환함.
+// 비동기 작업이므로 async 적용
+export async function fetchProfile(userId: string) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// 2. 사용자 정보 생성하기
+export async function createProfile(userId: string) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .insert({ id: userId, nickname: getRandomNickName() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+```
+
+### 5.3. 프로필 조회 실패시 호출해 주기
+
+- `/src/hooks/queries/useProfileData.ts` 업데이트
+
+```ts
+import { createProfile, fetchProfile } from '@/apis/profile';
+import { QUERY_KEYS } from '@/lib/constants';
+import { useQuery } from '@tanstack/react-query';
+import type { PostgrestError } from '@supabase/supabase-js';
+
+export default function useProfileData(userId?: string) {
+  return useQuery({
+    queryKey: QUERY_KEYS.profile.byId(userId!),
+    queryFn: async () => {
+      try {
+        const profile = await fetchProfile(userId!);
+        return profile;
+      } catch (error) {
+        // 에러코드 파악으로 처리함
+        if ((error as PostgrestError).code === 'PGRST116') {
+          // 기본 사용자 생성
+          return await createProfile(userId!);
         }
-      );
-
-      return { prevTodo };
-    },
-    // 에러가 발생함
-    onError: (error, valiable, context) => {
-      if (context?.prevTodo) {
-        queryClient.setQueryData<Todo>(
-          QUERY_KEYS.todo.detail(context.prevTodo.id.toString()),
-          context.prevTodo
-        );
+        throw error;
       }
-      return { error };
     },
+    enabled: !!userId,
+  });
+}
+```
+
+### 5.4. 다른 사용자가 만약 없는 사용자 프로필을 호출한다면
+
+- 타인의 프로필은 생성하지 않도록 처리 필요.
+
+```ts
+import { createProfile, fetchProfile } from '@/apis/profile';
+import { QUERY_KEYS } from '@/lib/constants';
+import { useQuery } from '@tanstack/react-query';
+import type { PostgrestError } from '@supabase/supabase-js';
+import { useSession } from '@/stores/session';
+
+export default function useProfileData(userId?: string) {
+  // 나의 정보 확인
+  const session = useSession();
+  // 나의 계정인지를 검사
+  const inMine = userId === session?.user.id;
+
+  return useQuery({
+    queryKey: QUERY_KEYS.profile.byId(userId!),
+    queryFn: async () => {
+      try {
+        const profile = await fetchProfile(userId!);
+        return profile;
+      } catch (error) {
+        // 에러코드 파악으로 처리함
+        if (inMine && (error as PostgrestError).code === 'PGRST116') {
+          // 기본 사용자 생성
+          return await createProfile(userId!);
+        }
+        throw error;
+      }
+    },
+    enabled: !!userId,
   });
 }
 ```

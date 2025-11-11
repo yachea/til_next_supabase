@@ -1,148 +1,258 @@
-# Post 등록하기 (글자)
+# Post 이미지 등록하기
 
-## 1. 글등록 API 작성하기
+- Storage 설정 및 권한설정
 
-- `/src/apis/post.ts 파일` 생성
+## 1. 시나리오
 
-```ts
-import supabase from '@/lib/supabase/client';
+### 1.1. 등록 과정
 
-// 1. 글 등록
-export async function createPost(content: string) {
-  const { data, error } = await supabase.from('posts').insert({ content });
-  if (error) throw error;
-  return data;
-}
-```
+- 포스트 등록 : 포스트의 ID 를 생성
+- 포스트 ID 를 전달하면서 사용자가 이미지를 업로드 하면 URL 을 받아옴
+- 포스트 ID 에 해당하는 데이터를 업데이트함. (URL 을 posts 테이블에 등록)
 
-## 2. hook 생성하기
+### 1.2. 저장소 경로 규칙
 
-- mutation 들을 정리하자.
-- `/src/hooks/auth 폴더` 생성 및 관련 파일 이동.
-- `/src/hooks/mutations/post 폴더` 생성
-- `/src/hooks/mutations/post/useCreatePost.ts 파일` 생성
+- 사용자ID/포스트ID/파일들 저장
+- 사용자 탈퇴시 `사용자 ID 폴더` 삭제
+- 포스트 삭제시 `사용자 ID / 포스트 ID 폴더` 삭제
 
-```ts
-import { createPost } from '@/apis/post';
-import { UseMutationCallback } from '@/types/types';
-import { useMutation } from '@tanstack/react-query';
+## 2. 이미지 업로드 UI 구현
 
-export function useCreatePost(callback?: UseMutationCallback) {
-  return useMutation({
-    mutationFn: createPost,
-    onSuccess: () => {
-      if (callback?.onSuccess) callback.onSuccess();
-    },
-    onError: error => {
-      if (callback?.onError) callback.onError(error);
-    },
-  });
-}
-```
+- `/src/components/PostEditorModal.tsx` 추가
 
-## 3. 적용하기
-
-- `/src/components/modal/PostEditorModal.tsx` 적용
-- 1 단계. mutation 활용
+### 2.1. 기본 파일 선택 연결
 
 ```tsx
-// 글등록 mutation 을 사용함.
-const { mutate: createPost, isPending: isCreatePostPending } = useCreatePost({
-  onSuccess: () => {
-    close();
-  },
-  onError: error => {
-    toast.error('포스트 생성에 실패했습니다.', { position: 'top-center' });
-  },
-});
+{
+  /* 이미지 선택 Input 태그 숨김 */
+}
+<input type='file' accept='image/*' multiple className='hidden' />;
 ```
 
-- 2 단계.
+```tsx
+// 이미지 Input 태그 참조
+const fileInputRef = useRef<HTMLInputElement>(null);
+```
 
 ```tsx
-// 실제 포스트 등록하기
-const handleCreatePost = () => {
-  if (content.trim() === '') return;
-  createPost(content);
+{
+  /* 이미지 선택 Input 태그 숨김 */
+}
+<input
+  ref={fileInputRef}
+  type='file'
+  accept='image/*'
+  multiple
+  className='hidden'
+/>;
+```
+
+```tsx
+<Button
+  onClick={() => fileInputRef.current?.click()}
+  variant='outline'
+  className='cursor-pointer'
+>
+  <ImageIcon /> 이미지 추가
+</Button>
+```
+
+### 2.2. 선택된 파일 미리보기 배치
+
+- 1단계: 타입 정의
+
+```tsx
+type Image = { file: File; previewUrl: string };
+```
+
+- 2단계: 목록 관리
+
+```tsx
+// 이미지 미리보기 내용들
+const [images, setImages] = useState<Image[]>([]);
+```
+
+- 3단계: 이미지들이 선택되었을 때 실행할 핸들러
+
+```tsx
+// 이미지들이 선택되었을 때 실행할 핸들러
+const handleSelectImages = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files) {
+    // 객체로부터 배열 만드는 Array.from
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      setImages(prev => [
+        ...prev,
+        { file, previewUrl: URL.createObjectURL(file) },
+      ]);
+    });
+  }
+  // 초기화 시킴
+  e.target.value = '';
 };
 ```
 
-- 최종코드
+- 4단게: 이벤트 연결하기
 
 ```tsx
-'use client';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { useCreatePost } from '@/hooks/mutations/post/useCreatePost';
-import { usePostEdiotorModal } from '@/stores/postEditorModalStore';
-import { ImageIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
+{
+  /* 이미지 선택 Input 태그 숨김 */
+}
+<input
+  onChange={handleSelectImages}
+  ref={fileInputRef}
+  type='file'
+  accept='image/*'
+  multiple
+  className='hidden'
+/>;
+```
 
-export default function PostEditorModal() {
-  const { isOpen, close } = usePostEdiotorModal();
+- 5단계: 이미지 미리보기
 
-  // 글등록 mutation 을 사용함.
-  const { mutate: createPost, isPending: isCreatePostPending } = useCreatePost({
-    onSuccess: () => {
-      close();
-    },
-    onError: error => {
-      toast.error('포스트 생성에 실패했습니다.', { position: 'top-center' });
-    },
-  });
-
-  // post 에 저장할 내용
-  const [content, setContent] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  }, [content]);
-
-  // 자동포커스 및 내용 초기화
-  useEffect(() => {
-    if (!isOpen) return;
-    textareaRef.current?.focus();
-    setContent('');
-  }, [isOpen]);
-
-  const handleCloseModal = () => {
-    close();
-  };
-
-  // 실제 포스트 등록하기
-  const handleCreatePost = () => {
-    if (content.trim() === '') return;
-    createPost(content);
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={handleCloseModal}>
-      <DialogContent className='max-h-[90vh]'>
-        <DialogTitle>포스트 작성</DialogTitle>
-        <textarea
-          ref={textareaRef}
-          value={content}
-          disabled={isCreatePostPending}
-          onChange={e => setContent(e.target.value)}
-          className='max-h-125 min-h-25 focus:outline-none'
-          placeholder='새로운 글을 등록해 주세요.'
-        />
-        <Button variant='outline' className='cursor-pointer'>
-          <ImageIcon /> 이미지 추가
-        </Button>
-        <Button
-          disabled={isCreatePostPending}
-          onClick={handleCreatePost}
-          className='cursor-pointer'
-        >
-          저장
-        </Button>
-      </DialogContent>
-    </Dialog>
+```tsx
+{
+  /* 이미지 미리보기 슬라이드 */
+}
+{
+  images.length > 0 && (
+    <Carousel>
+      <CarouselContent>
+        {images.map((img, index) => (
+          <CarouselItem key={index} className='basis-2/5'>
+            <img
+              src={img.previewUrl}
+              className='w-full h-full rounded-sm object-cover'
+            />
+          </CarouselItem>
+        ))}
+      </CarouselContent>
+    </Carousel>
   );
 }
+```
+
+### 2.3. 이미지 미리보기 삭제 기능
+
+- 1단계 : 목록 갱신
+
+```tsx
+// 이미지가 제거될 때 실행될 핸들러
+const handleDeleteImage = (img: Image) => {
+  setImages(prevImg =>
+    prevImg.filter(item => item.previewUrl != img.previewUrl)
+  );
+};
+```
+
+- 2단계 : 아이콘 및 기능배치
+
+```tsx
+{
+  /* 이미지 미리보기 슬라이드 */
+}
+{
+  images.length > 0 && (
+    <Carousel>
+      <CarouselContent>
+        {images.map((img, index) => (
+          <CarouselItem key={index} className='basis-2/5 relative'>
+            {/* 삭제 아이콘 및 기능 추가 */}
+            <div
+              onClick={() => handleDeleteImage(img)}
+              className='absolute top-0 right-0 m-1 cursor-pointer rounded-full bg-black/30 p-1'
+            >
+              <XIcon className='w-4 h-4 text-white' />
+            </div>
+            <img
+              src={img.previewUrl}
+              className='w-full h-full rounded-sm object-cover'
+            />
+          </CarouselItem>
+        ))}
+      </CarouselContent>
+    </Carousel>
+  );
+}
+```
+
+- 3단계 : UI 개선
+
+```tsx
+{
+  /* 이미지 미리보기 슬라이드 */
+}
+{
+  images.length > 0 && (
+    <Carousel>
+      <CarouselContent>
+        {images.map((img, index) => (
+          <CarouselItem key={index} className='basis-2/5'>
+            <div className='relative w-full h-48'>
+              {/* 삭제 아이콘 및 기능 추가 */}
+              <div
+                onClick={() => handleDeleteImage(img)}
+                className='absolute top-0 right-0 m-1 cursor-pointer rounded-full bg-black/30 p-1'
+              >
+                <XIcon className='w-4 h-4 text-white' />
+              </div>
+              <img
+                src={img.previewUrl}
+                className='w-full h-full rounded-sm object-cover'
+              />
+            </div>
+          </CarouselItem>
+        ))}
+      </CarouselContent>
+    </Carousel>
+  );
+}
+```
+
+### 2.4. Next.js Image 적용
+
+```tsx
+{
+  /* 이미지 미리보기 슬라이드 */
+}
+{
+  images.length > 0 && (
+    <Carousel>
+      <CarouselContent>
+        {images.map((img, index) => (
+          <CarouselItem key={index} className='basis-2/5'>
+            <div className='relative w-full h-48'>
+              {/* 삭제 아이콘 및 기능 추가 */}
+              <div
+                onClick={() => handleDeleteImage(img)}
+                className='absolute top-0 right-0 m-1 cursor-pointer rounded-full bg-black/30 p-1'
+              >
+                <XIcon className='w-4 h-4 text-white' />
+              </div>
+              <Image
+                src={img.previewUrl}
+                alt='이미지 미리보기'
+                fill
+                unoptimized
+                className='rounded-sm object-cover'
+              />
+            </div>
+          </CarouselItem>
+        ))}
+      </CarouselContent>
+    </Carousel>
+  );
+}
+```
+
+- 이미지 목록 초기화 하기
+
+```tsx
+// 자동포커스 및 내용 초기화
+useEffect(() => {
+  if (!isOpen) return;
+  textareaRef.current?.focus();
+  setContent('');
+  setImages([]);
+}, [isOpen]);
 ```

@@ -1,12 +1,25 @@
 'use client';
-import { ImageIcon } from 'lucide-react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { useCreatePost } from '@/hooks/mutations/post/useCreatePost';
 import { usePostEdiotorModal } from '@/stores/postEditorModalStore';
+import { ImageIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 export default function PostEditorModal() {
   const { isOpen, close } = usePostEdiotorModal();
+
+  // 글등록 mutation 을 사용함.
+  const { mutate: createPost, isPending: isCreatePostPending } = useCreatePost({
+    onSuccess: () => {
+      close();
+    },
+    onError: error => {
+      toast.error('포스트 생성에 실패했습니다.', { position: 'top-center' });
+    },
+  });
+
   // post 에 저장할 내용
   const [content, setContent] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -17,7 +30,7 @@ export default function PostEditorModal() {
     }
   }, [content]);
 
-  // 자동포커스
+  // 자동포커스 및 내용 초기화
   useEffect(() => {
     if (!isOpen) return;
     textareaRef.current?.focus();
@@ -28,6 +41,12 @@ export default function PostEditorModal() {
     close();
   };
 
+  // 실제 포스트 등록하기
+  const handleCreatePost = () => {
+    if (content.trim() === '') return;
+    createPost(content);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseModal}>
       <DialogContent className='max-h-[90vh]'>
@@ -35,6 +54,7 @@ export default function PostEditorModal() {
         <textarea
           ref={textareaRef}
           value={content}
+          disabled={isCreatePostPending}
           onChange={e => setContent(e.target.value)}
           className='max-h-125 min-h-25 focus:outline-none'
           placeholder='새로운 글을 등록해 주세요.'
@@ -42,7 +62,13 @@ export default function PostEditorModal() {
         <Button variant='outline' className='cursor-pointer'>
           <ImageIcon /> 이미지 추가
         </Button>
-        <Button className='cursor-pointer'>저장</Button>
+        <Button
+          disabled={isCreatePostPending}
+          onClick={handleCreatePost}
+          className='cursor-pointer'
+        >
+          저장
+        </Button>
       </DialogContent>
     </Dialog>
   );

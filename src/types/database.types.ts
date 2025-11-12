@@ -39,11 +39,19 @@ export type Database = {
           image_urls?: string[] | null
           like_count?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
-          avatar_url: string | null
+          abatar_url: string | null
           bio: string
           created_at: string
           id: string
@@ -51,7 +59,7 @@ export type Database = {
           role: string
         }
         Insert: {
-          avatar_url?: string | null
+          abatar_url?: string | null
           bio?: string
           created_at?: string
           id?: string
@@ -59,7 +67,7 @@ export type Database = {
           role?: string
         }
         Update: {
-          avatar_url?: string | null
+          abatar_url?: string | null
           bio?: string
           created_at?: string
           id?: string

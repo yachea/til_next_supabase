@@ -8,10 +8,18 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Carousel, CarouselContent, CarouselItem } from '../ui/carousel';
 import Image from 'next/image';
+import { useSession } from '@/stores/session';
+import { useOpenAlertModal } from '@/stores/alertModalStore';
 
 type ImageFile = { file: File; previewUrl: string };
 
 export default function PostEditorModal() {
+  //  사용자 정보 받아오기
+  const session = useSession();
+
+  // 경고창
+  const openAlertModal = useOpenAlertModal();
+
   const { isOpen, close } = usePostEdiotorModal();
 
   // 글등록 mutation 을 사용함.
@@ -43,19 +51,45 @@ export default function PostEditorModal() {
   // 자동포커스 및 내용 초기화
   useEffect(() => {
     if (!isOpen) return;
+
+    // 웹브라우저의 캐시에 저장된 이미지 리셋
+    images.forEach(img => {
+      // 메모리 상에서 제거
+      URL.revokeObjectURL(img.previewUrl);
+    });
+
     textareaRef.current?.focus();
     setContent('');
     setImages([]);
   }, [isOpen]);
 
   const handleCloseModal = () => {
+    if (content !== '' || images.length !== 0) {
+      // 안내창을 띄워서 확인후 닫기 실행처리
+      openAlertModal({
+        title: '포스트 작성이 완료되지 않았습니다.',
+        description: '화면에서 나가면 작성중이던 내용이 사라집니다.',
+        onPositive: () => {
+          close();
+        },
+        onNegative: () => {
+          console.log('취소 확인');
+        },
+      });
+      return;
+    }
     close();
   };
 
   // 실제 포스트 등록하기
   const handleCreatePost = () => {
     if (content.trim() === '') return;
-    createPost(content);
+    // createPost(content);
+    createPost({
+      content: content,
+      userId: session!.user.id,
+      images: images.map(item => item.file),
+    });
   };
 
   // 이미지들이 선택되었을 때 실행할 핸들러
@@ -79,6 +113,8 @@ export default function PostEditorModal() {
     setImages(prevImg =>
       prevImg.filter(item => item.previewUrl != img.previewUrl)
     );
+    // 웹브라우저 캐시 메모리 지우기
+    URL.revokeObjectURL(img.previewUrl);
   };
 
   return (

@@ -813,10 +813,435 @@ npx supabase login
 npm run generate-types
 ```
 
-## 7. 무한 스크롤
+### 7.2. API 생성
 
-## 8. Post 편집
+- `/src/apis/post.ts` 변경
 
-## 9. Post 삭제
+```ts
+export async function fetchPosts() {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*, author: profiles!author_id(*)')
+    .order('created_at', { ascending: false });
 
-## 10. 목록 갱신
+  if (error) throw error;
+  return data;
+}
+```
+
+### 7.3. Query 생성을 위한 `키 팩토링` 작성
+
+- `/src/lib/constants.ts`
+
+```ts
+import { profile } from 'console';
+
+// 쿼리키 팩토링 상수
+export const QUERY_KEYS = {
+  todo: {
+    all: ['todos'],
+    list: ['todos', 'list'],
+    detail: (id: string) => ['todos', 'deatail', id],
+  },
+  // 프로필 useQuery 키 생성 및 관리
+  profile: {
+    all: ['profile'],
+    list: ['profile', 'list'],
+    byId: (userId: string) => ['profile', 'byId', userId],
+  },
+  // 포스트 useQuery 키 생성 및 관리
+  posts: {
+    all: ['posts'],
+    list: ['posts', 'list'],
+    byId: (postId: string) => ['posts', 'byId', postId],
+  },
+};
+
+// 버킷 이름 : Supabase Storage 저장소
+export const BUCKET_NAME = 'uploads';
+```
+
+### 7.4. hook 생성하기
+
+- `/src/hooks/queries/usePostsData.ts 파일` 생성
+
+```ts
+import { fetchPosts } from '@/apis/post';
+import { QUERY_KEYS } from '@/lib/constants';
+import { useQuery } from '@tanstack/react-query';
+
+export function usePostsData() {
+  return useQuery({
+    queryKey: QUERY_KEYS.posts.list,
+    queryFn: () => fetchPosts(),
+  });
+}
+```
+
+### 7.5. 오류발생 표현 공용컴포넌트 만들기
+
+- `/src/components/Fallback.tsx 파일` 생성
+
+```tsx
+import { TriangleAlertIcon } from 'lucide-react';
+
+export default function FallBack() {
+  return (
+    <div className='flex flex-col items-center justify-center text-muted-foreground gap-2'>
+      <TriangleAlertIcon className='h-6 w-6' />
+      <p>오류가 발생했습니다. 잠시 후 다시 시도해주세요.</p>
+    </div>
+  );
+}
+```
+
+### 7.6. 포스트 들을 모아놓은 컴포넌트 업데이트
+
+- `/src/components/post/PostFeed.tsx 파일` 업데이트
+
+```tsx
+import FallBack from '../Fallback';
+
+function PostFeed() {
+  return <FallBack />;
+  return <div>PostFeed</div>;
+}
+
+export default PostFeed;
+```
+
+### 7.7. 로딩중 표현 공용 컴포넌트 만들기
+
+- `/src/components/Loader.tsx 파일` 생성
+
+```tsx
+import { LoaderCircleIcon } from 'lucide-react';
+
+export default function Loader() {
+  return (
+    <div className='flex flex-col items-center justify-center text-muted-foreground gap-5'>
+      <LoaderCircleIcon className='animate-spin' />
+      <div className='text-sm'>데이터를 불러오는 중입니다.</div>
+    </div>
+  );
+}
+```
+
+- PostFeed.tsx 에 출력시켜보기
+
+```tsx
+import FallBack from '../Fallback';
+import Loader from '../Loader';
+
+function PostFeed() {
+  return <Loader />;
+  return <FallBack />;
+  return <div>PostFeed</div>;
+}
+
+export default PostFeed;
+```
+
+### 7.8. 포스트 리스트 출력하기
+
+- `/src/components/post/PostFeed.tsx`
+
+```tsx
+'use client';
+
+import { usePostsData } from '@/hooks/queries/usePostsData';
+import Loader from '../Loader';
+import FallBack from '../Fallback';
+
+export default function PostFeed() {
+  const { data, error, isPending } = usePostsData();
+  if (error) return <FallBack />;
+  if (isPending) return <Loader />;
+  return (
+    <div className='flex flex-col gap-10'>
+      {data?.map(post => (
+        <div key={post.id}>
+          <div>{post.content}</div>
+          <div>{post.created_at}</div>
+          <div>{post.author_id}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### 7.9. 포스트 리스트 컴포넌트 생성하기
+
+- 타입 추가 확장 (`/src/types/types.ts` 추가 )
+
+```ts
+// 포스트와 프로필 타입 조합
+export type Post = PostEntity & { author: ProfileEntity };
+```
+
+- `/src/components/post/PostItem.tsx 파일` 생성
+
+```tsx
+import { Post } from '@/types/types';
+
+// PostEntity : 현재 전달된 타입으로는 사용자 프로필에 대한 정보 파악이 어렵다.
+export default function PostItem(post: Post) {
+  return (
+    <div>
+      <div>{post.content}</div>
+      <div>{post.created_at}</div>
+      <div>{post.author_id}</div>
+    </div>
+  );
+}
+```
+
+```tsx
+'use client';
+import type { Post } from '@/types/types';
+import { HeartIcon, MessageCircle } from 'lucide-react';
+import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from '@/components/ui/carousel';
+import defaultAvatar from '/public/assets/icons/default-avatar.jpg';
+
+export default function PostItem(post: Post) {
+  return (
+    <div className='flex flex-col gap-4 border-b pb-8'>
+      {/* 1. 유저 정보, 수정/삭제 버튼 */}
+      <div className='flex justify-between'>
+        {/* 1-1. 유저 정보 */}
+        <div className='flex items-start gap-4'>
+          <Image
+            src={post.author.abatar_url || defaultAvatar}
+            alt={`${post.author.nickname}의 프로필 이미지`}
+            className='h-10 w-10 rounded-full object-cover'
+            width={40}
+            height={40}
+          />
+          <div>
+            <div className='font-bold hover:underline'>
+              {post.author.nickname}
+            </div>
+            <div className='text-muted-foreground text-sm'>
+              {new Date(post.created_at).toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        {/* 1-2. 수정/삭제 버튼 */}
+        <div className='text-muted-foreground flex text-sm'>
+          <Button className='cursor-pointer' variant={'ghost'}>
+            수정
+          </Button>
+          <Button className='cursor-pointer' variant={'ghost'}>
+            삭제
+          </Button>
+        </div>
+      </div>
+
+      {/* 2. 컨텐츠, 이미지 캐러셀 */}
+      <div className='flex cursor-pointer flex-col gap-5'>
+        {/* 2-1. 컨텐츠 */}
+        <div className='line-clamp-2 break-words whitespace-pre-wrap'>
+          {post.content}
+        </div>
+
+        {/* 2-2. 이미지 캐러셀 */}
+        <Carousel>
+          <CarouselContent>
+            {post.image_urls?.map((url, index) => (
+              <CarouselItem className={`basis-3/5`} key={index}>
+                <div className='overflow-hidden rounded-xl'>
+                  <img
+                    src={url}
+                    className='h-full max-h-[350px] w-full object-cover'
+                  />
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+      </div>
+
+      {/* 3. 좋아요, 댓글 버튼 */}
+      <div className='flex gap-2'>
+        {/* 3-1. 좋아요 버튼 */}
+        <div className='hover:bg-muted flex cursor-pointer items-center gap-2 rounded-xl border-1 p-2 px-4 text-sm'>
+          <HeartIcon className='h-4 w-4' />
+          <span>0</span>
+        </div>
+
+        {/* 3-2. 댓글 버튼 */}
+        <div className='hover:bg-muted flex cursor-pointer items-center gap-2 rounded-xl border-1 p-2 px-4 text-sm'>
+          <MessageCircle className='h-4 w-4' />
+          <span>댓글 달기</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+- avatar 오타났음. abatar는 avatar로 적용해서 해야함.
+
+### 7.10. 배치하기
+
+- `/src/components/post/PostFeed.tsx 파일` 배치
+
+```tsx
+'use client';
+
+import { usePostsData } from '@/hooks/queries/usePostsData';
+import Loader from '../Loader';
+import FallBack from '../Fallback';
+import PostItem from './PostItem';
+
+export default function PostFeed() {
+  const { data, error, isPending } = usePostsData();
+  if (error) return <FallBack />;
+  if (isPending) return <Loader />;
+  return (
+    <div className='flex flex-col gap-10'>
+      {data?.map(post => (
+        <div key={post.id}>
+          <PostItem key={post.id} {...post} />
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### 7.11. 시간을 변경해서 출력하기
+
+- `/src/lib/time.ts 파일` 생성
+
+```ts
+export function formatTimeAgo(time: Date | string | number) {
+  const start = new Date(time);
+  const end = new Date();
+
+  const secondDiff = Math.floor((end.getTime() - start.getTime()) / 1000);
+  if (secondDiff < 60) return '방금 전';
+
+  const minuteDiff = Math.floor(secondDiff / 60);
+  if (minuteDiff < 60) return `${minuteDiff}분 전`;
+
+  const hourDiff = Math.floor(minuteDiff / 60);
+  if (hourDiff < 24) return `${hourDiff}시간 전`;
+
+  const dayDiff = Math.floor(hourDiff / 24);
+  return `${dayDiff}일 전`;
+}
+```
+
+### 7.12. 시간을 적용하기
+
+- `/src/components/PostItem.tsx 파일` 업데이트
+
+```tsx
+'use client';
+import type { Post } from '@/types/types';
+import { HeartIcon, MessageCircle } from 'lucide-react';
+import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from '@/components/ui/carousel';
+import defaultAvatar from '/public/assets/icons/default-avatar.jpg';
+import { formatTimeAgo } from '@/lib/time';
+
+export default function PostItem(post: Post) {
+  return (
+    <div className='flex flex-col gap-4 border-b pb-8'>
+      {/* 1. 유저 정보, 수정/삭제 버튼 */}
+      <div className='flex justify-between'>
+        {/* 1-1. 유저 정보 */}
+        <div className='flex items-start gap-4'>
+          <Image
+            src={post.author.abatar_url || defaultAvatar}
+            alt={`${post.author.nickname}의 프로필 이미지`}
+            className='h-10 w-10 rounded-full object-cover'
+            width={40}
+            height={40}
+          />
+          <div>
+            <div className='font-bold hover:underline'>
+              {post.author.nickname}
+            </div>
+            <div className='text-muted-foreground text-sm'>
+              {formatTimeAgo(post.created_at)}
+              {/* {new Date(post.created_at).toLocaleString()} */}
+            </div>
+          </div>
+        </div>
+
+        {/* 1-2. 수정/삭제 버튼 */}
+        <div className='text-muted-foreground flex text-sm'>
+          <Button className='cursor-pointer' variant={'ghost'}>
+            수정
+          </Button>
+          <Button className='cursor-pointer' variant={'ghost'}>
+            삭제
+          </Button>
+        </div>
+      </div>
+
+      {/* 2. 컨텐츠, 이미지 캐러셀 */}
+      <div className='flex cursor-pointer flex-col gap-5'>
+        {/* 2-1. 컨텐츠 */}
+        <div className='line-clamp-2 break-words whitespace-pre-wrap'>
+          {post.content}
+        </div>
+
+        {/* 2-2. 이미지 캐러셀 */}
+        <Carousel>
+          <CarouselContent>
+            {post.image_urls?.map((url, index) => (
+              <CarouselItem className={`basis-3/5`} key={index}>
+                <div className='overflow-hidden rounded-xl'>
+                  <img
+                    src={url}
+                    className='h-full max-h-[350px] w-full object-cover'
+                  />
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+      </div>
+
+      {/* 3. 좋아요, 댓글 버튼 */}
+      <div className='flex gap-2'>
+        {/* 3-1. 좋아요 버튼 */}
+        <div className='hover:bg-muted flex cursor-pointer items-center gap-2 rounded-xl border-1 p-2 px-4 text-sm'>
+          <HeartIcon className='h-4 w-4' />
+          <span>0</span>
+        </div>
+
+        {/* 3-2. 댓글 버튼 */}
+        <div className='hover:bg-muted flex cursor-pointer items-center gap-2 rounded-xl border-1 p-2 px-4 text-sm'>
+          <MessageCircle className='h-4 w-4' />
+          <span>댓글 달기</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+## 8. 무한 스크롤
+
+## 9. Post 편집
+
+## 10. Post 삭제
+
+## 11. 목록 갱신

@@ -9,14 +9,13 @@ interface SessionProviderProps {
   children: React.ReactNode;
 }
 export default function SessionProvider({ children }: SessionProviderProps) {
-  // 1단계. 현재 세션 Store로 부터 사용자의 세션 데이터를 불러옴
+  // 1 단계. 현재 세션 Store 로 부터 사용자의 세션 데이터를 불러옴
   const session = useSession();
 
   const setSession = useSetSession();
   const isSessionLoaded = useSessionLoaded();
-
-  // 2단계.
-  // session 데이터 안쪽의 user.id 를 인수로 전달함.
+  // 2 단계
+  // session 데이터 안쪽의  user.id 를 인수로 전달함.
   const { data: profile, isLoading: isProfileLoading } = useProfileData(
     session?.user.id
   );

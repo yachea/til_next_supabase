@@ -1,17 +1,38 @@
 'use client';
-import type { Post } from '@/types/types';
-import { HeartIcon, MessageCircle } from 'lucide-react';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
 } from '@/components/ui/carousel';
-import defaultAvatar from '/public/assets/icons/default-avatar.jpg';
 import { formatTimeAgo } from '@/lib/time';
+import type { Post } from '@/types/types';
+import { HeartIcon, MessageCircle } from 'lucide-react';
+import Image from 'next/image';
+import DeletePostButton from './DeletePostButton';
+import EditPostItemButton from './EditPostItemButton';
+import defaultAvatar from '/public/assets/icons/default-avatar.jpg';
+import { useSession } from '@/stores/session';
+import { usePostByIdData } from '@/hooks/queries/usePostByIdData';
+import Loader from '../Loader';
+import FallBack from '../FallBack';
+import LikeButton from './LikeButton';
 
-export default function PostItem(post: Post) {
+export default function PostItem({ postId }: { postId: number }) {
+  // 내가 만든 post 인지 확인
+  const session = useSession();
+  const userId = session?.user.id;
+  // 실제 쿼리로 id 를 전달해서 post를 가져오자.
+  const {
+    data: post,
+    isPending,
+    error,
+  } = usePostByIdData({ postId, type: 'FEED' });
+
+  if (isPending) return <Loader />;
+  if (error) return <FallBack />;
+
+  const isMine = userId === post.author.id;
+
   return (
     <div className='flex flex-col gap-4 border-b pb-8'>
       {/* 1. 유저 정보, 수정/삭제 버튼 */}
@@ -19,7 +40,7 @@ export default function PostItem(post: Post) {
         {/* 1-1. 유저 정보 */}
         <div className='flex items-start gap-4'>
           <Image
-            src={post.author.abatar_url || defaultAvatar}
+            src={post.author.avatar_url || defaultAvatar}
             alt={`${post.author.nickname}의 프로필 이미지`}
             className='h-10 w-10 rounded-full object-cover'
             width={40}
@@ -38,12 +59,12 @@ export default function PostItem(post: Post) {
 
         {/* 1-2. 수정/삭제 버튼 */}
         <div className='text-muted-foreground flex text-sm'>
-          <Button className='cursor-pointer' variant={'ghost'}>
-            수정
-          </Button>
-          <Button className='cursor-pointer' variant={'ghost'}>
-            삭제
-          </Button>
+          {isMine && (
+            <>
+              <EditPostItemButton {...post} />
+              <DeletePostButton id={post.id} />
+            </>
+          )}
         </div>
       </div>
 
@@ -74,10 +95,11 @@ export default function PostItem(post: Post) {
       {/* 3. 좋아요, 댓글 버튼 */}
       <div className='flex gap-2'>
         {/* 3-1. 좋아요 버튼 */}
-        <div className='hover:bg-muted flex cursor-pointer items-center gap-2 rounded-xl border-1 p-2 px-4 text-sm'>
-          <HeartIcon className='h-4 w-4' />
-          <span>0</span>
-        </div>
+        <LikeButton
+          id={post.id}
+          likeCount={post.like_count}
+          isLiked={post.isLiked}
+        />
 
         {/* 3-2. 댓글 버튼 */}
         <div className='hover:bg-muted flex cursor-pointer items-center gap-2 rounded-xl border-1 p-2 px-4 text-sm'>

@@ -21,7 +21,10 @@ export default function QueryProvider({
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { retry: false, refetchOnWindowFocus: false },
+          queries: {
+            retry: false,
+            refetchOnWindowFocus: false,
+          },
         },
       })
   );
